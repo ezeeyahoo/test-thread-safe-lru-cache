@@ -58,10 +58,10 @@ impl<K: Eq + Hash + Clone, V: Clone> LruCache<K, V> {
             return;
         }
 
-        if state.map.len() == self.capacity {
-            if let Some(lru_key) = state.order.pop_front() {
-                state.map.remove(&lru_key);
-            }
+        if state.map.len() == self.capacity
+            && let Some(lru_key) = state.order.pop_front()
+        {
+            state.map.remove(&lru_key);
         }
 
         state.map.insert(key.clone(), value);
@@ -70,6 +70,10 @@ impl<K: Eq + Hash + Clone, V: Clone> LruCache<K, V> {
 
     pub fn len(&self) -> usize {
         self.inner.read().unwrap().map.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
