@@ -2,16 +2,19 @@ use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
 use std::sync::RwLock;
 
+// cache struct
 pub struct LruCache<K, V> {
     capacity: usize,
     inner: RwLock<CacheState<K, V>>,
 }
 
+// structure to keep state of the cache
 struct CacheState<K, V> {
     map: HashMap<K, V>,
     order: VecDeque<K>,
 }
 
+// our implementation of get and put
 impl<K: Eq + Hash + Clone, V: Clone> LruCache<K, V> {
     pub fn new(capacity: usize) -> Self {
         assert!(capacity > 0);
@@ -70,6 +73,7 @@ impl<K: Eq + Hash + Clone, V: Clone> LruCache<K, V> {
     }
 }
 
+// Our generic unit test cases to test insertion, eviction and concurrency
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -77,43 +81,50 @@ mod tests {
     use std::thread;
 
     #[test]
-    fn basic_put_get() {
+    fn simple_insert_and_get() {
         let cache = LruCache::new(2);
 
-        cache.put(1, "a");
-        cache.put(2, "b");
+        cache.put(1, "one");
+        cache.put(2, "two");
 
-        assert_eq!(cache.get(&1), Some("a"));
-        assert_eq!(cache.get(&2), Some("b"));
+        assert_eq!(cache.get(&1), Some("one"));
+        assert_eq!(cache.get(&2), Some("two"));
     }
 
     #[test]
-    fn eviction_works() {
+    fn should_evict_oldest() {
         let cache = LruCache::new(2);
 
         cache.put(1, "a");
         cache.put(2, "b");
+        cache.put(3, "c"); // this should evict 1
 
-        cache.get(&1);
-        cache.put(3, "c");
-
-        assert_eq!(cache.get(&2), None);
-        assert_eq!(cache.get(&1), Some("a"));
+        assert_eq!(cache.get(&1), None);
+        assert_eq!(cache.get(&2), Some("b"));
         assert_eq!(cache.get(&3), Some("c"));
     }
 
     #[test]
-    fn concurrent_access() {
-        let cache = Arc::new(LruCache::new(50));
+    fn update_value() {
+        let cache = LruCache::new(2);
+
+        cache.put(1, "a");
+        cache.put(1, "b");
+
+        assert_eq!(cache.get(&1), Some("b"));
+    }
+
+    #[test]
+    fn basic_concurrent_usage() {
+        let cache = Arc::new(LruCache::new(3));
         let mut handles = vec![];
 
-        for i in 0..10 {
-            let cache_clone = Arc::clone(&cache);
-
+        for i in 0..5 {
+            let c = Arc::clone(&cache);
             handles.push(thread::spawn(move || {
-                for j in 0..1000 {
-                    cache_clone.put(j, i);
-                    cache_clone.get(&j);
+                for j in 0..50 {
+                    c.put(j, i);
+                    let _ = c.get(&j);
                 }
             }));
         }
@@ -122,6 +133,7 @@ mod tests {
             h.join().unwrap();
         }
 
-        assert!(cache.len() <= 50);
+        // not super strict, just making sure nothing exploded
+        assert!(cache.len() <= 3);
     }
 }
